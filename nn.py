@@ -1,7 +1,8 @@
-#nn class
-
 import numpy as np
 import exceptions
+
+# TODO: backpropagation
+# gradient check
 
 # TODO: visualize:
 # dropout
@@ -10,13 +11,16 @@ import exceptions
 
 # representation semantics visualizations
 
+
 #init from csv file with saved weights and architecture information
 def init_from_checkpoint(file):
     return NN()
 
-relu = lambda x : np.maximum(0, x)
-sigmoid = lambda x : 1.0/(1.0 + np.exp(-x))
-tanh = lambda x : 2.0/(1.0 + np.exp(-2*x))
+
+relu = lambda x: np.maximum(0, x)
+sigmoid = lambda x: 1.0/(1.0 + np.exp(-x))
+tanh = lambda x: 2.0/(1.0 + np.exp(-2*x))
+
 
 class NN:
     '''
@@ -29,23 +33,26 @@ class NN:
     a: metaparameter for lrelu activation only
     labels: list(output_size) of output classification label names
     '''
-    def __init__(self, 
-                 input_size = 10, 
-                 output_size = 1, 
+    def __init__(self,
+                 input_size=10,
+                 output_size=1,
                  num_hidden=1, 
                  hidden_size=10, 
                  nonlinearity='relu',
-                 a = 0.01,
-                 labels = None): 
+                 a=0.01,
+                 labels=None):
         
         if num_hidden < 1 or not isinstance(num_hidden, int):
-            raise exceptions.InvalidNetworkInit('Invalid number of hidden layers %d. num_hidden should be an integer >= 1' % num_hidden)
+            raise exceptions.InvalidNetworkInit('Invalid number of hidden layers %d. num_hidden should be '
+                                                'an integer >= 1' % num_hidden)
         
         if input_size < 1 or not isinstance(input_size, int):
-            raise exceptions.InvalidNetworkInit('Invalid input size %d. input_size should be an integer >= 1' % input_size)
+            raise exceptions.InvalidNetworkInit('Invalid input size %d. input_size should be an integer >= 1'
+                                                % input_size)
         
         if output_size < 1 or not isinstance(output_size, int):
-            raise exceptions.InvalidNetworkInit('Invalid output size %d. output_size should be an integer >= 1' % output_size)
+            raise exceptions.InvalidNetworkInit('Invalid output size %d. output_size should be an integer >= 1'
+                                                % output_size)
         
         if nonlinearity == 'relu':
             self.f = relu
@@ -54,10 +61,11 @@ class NN:
         elif nonlinearity == 'tanh':
             self.f = tanh
         elif nonlinearity == 'lrelu':
-            self.f = lambda x : (x<0)*(a*x) + sigmoid(x)
+            self.f = lambda x: (x < 0) * (a * x) + sigmoid(x)
         else:
-            raise exceptions.InvalidNetworkInit('Invalid nonlinearity type \'%s\'. use relu \'rectified linear unit\', sigmoid, tanh, or lrelu \'leaky ReLU\'' % nonlinearity)
-
+            raise exceptions.InvalidNetworkInit('Invalid nonlinearity type \'%s\'. '
+                                                'Use relu \'rectified linear unit\', sigmoid, tanh, '
+                                                'or lrelu \'leaky ReLU\'' % nonlinearity)
             
         if labels and not len(labels) == output_size:
             raise exceptions.InvalidNetworkInit('Number of labels should equal output size')
@@ -67,23 +75,27 @@ class NN:
         # constructing (empty) activations
         self.activations = []
         self.activations.append(np.zeros(input_size))
-        
+
         # checking if hidden_size parameter is valid; if so, initilializing hidden layer activations
         if isinstance(hidden_size, int):
             if hidden_size < 1:
-                raise exceptions.InvalidNetworkInit('Invalid hidden_size %d. hidden_size should be an integer >= 1' % hidden_size)
+                raise exceptions.InvalidNetworkInit('Invalid hidden_size %d. hidden_size should be an integer >= 1'
+                                                    % hidden_size)
             for i in range(num_hidden):
                 self.activations.append(np.zeros(hidden_size))
         elif isinstance(hidden_size, list):
             if any(t < 1 for t in hidden_size) or not all(isinstance(t, int) for t in hidden_size):
-                raise exceptions.InvalidNetworkInit('One or more values in hidden_size are invalid. All values in hidden_size must be integers >= 1.')
+                raise exceptions.InvalidNetworkInit('One or more values in hidden_size are invalid. '
+                                                    'All values in hidden_size must be integers >= 1.')
             if not len(hidden_size) == num_hidden:
-                raise exceptions.InvalidNetworkInit('hidden_size vector must be a nonzero integer or list of length num_hidden of nonzero integers')
+                raise exceptions.InvalidNetworkInit('hidden_size vector must be a nonzero integer or '
+                                                    'list of length num_hidden of nonzero integers')
             else:
                 for i in range(num_hidden):
                     self.activations.append(np.zeros(hidden_size[i]))
         else:
-            raise exceptions.InvalidNetworkInit('hidden_size parameter must be a nonzero integer or list of nonzero integers.')
+            raise exceptions.InvalidNetworkInit('hidden_size parameter must be a nonzero integer '
+                                                'or list of nonzero integers.')
         
         # initializing output layer activations
         self.activations.append(np.zeros(output_size))
@@ -113,12 +125,14 @@ class NN:
             try:
                 for i, mat in enumerate(self.weights):
                     for j in range(mat.shape[0]):
-                        mat[j,:] = weights_in[line]
+                        mat[j, :] = weights_in[line]
                         line += 1
             except IndexError:
                 raise exceptions.InitFromFileError('Data in file must conform to dimensions of weight matrices')
             except ValueError as e:
-                raise exceptions.InitFromFileError('ValueError: ' + str(e) + '. Data in file must conform to dimensions of network weight matrices')
+                raise exceptions.InitFromFileError('ValueError: ' + str(e)
+                                                   + '. Data in file must conform to dimensions of '
+                                                     'network weight matrices')
     
     # save weights to file
     def save_weights(self, file):
@@ -143,21 +157,43 @@ class NN:
             self.activations[i+1] = self.f(np.dot(self.activations[i], self.weights[i]) + self.biases[i])
         
         # compute output layer without nonlinearity
-        self.activations[self.depth] = np.dot(self.activations[self.depth-1], self.weights[self.depth-1]) + self.biases[self.depth-1]
+        self.activations[self.depth] = np.dot(self.activations[self.depth-1], self.weights[self.depth-1]) \
+                                       + self.biases[self.depth-1]
         
         return self.activations[self.depth]    
     
     def train(self, X, y, dropout, train_rate, reg_strength):
         if dropout <= 0 or dropout > 1:
-            raise exceptions.InvalidTrainingParameter('Invalid dropout %f. Valid value are 0 <= dropout <= 1' % dropout)
+            raise exceptions.InvalidTrainingParameter('Invalid dropout %f. Valid value are 0 <= dropout <= 1'
+                                                      % dropout)
+        num_examples = X.shape[0]
+        # TODO how are batches processed?
+        # loop
+            # x = ?
+            # fwdpass()
+            # compute_loss(num_examples, reg_strength)
+            # backprop(x, y, train_rate, reg_strength)
+            # param update(x, train_rate, dW, dB)
 
-        pass
-    
+        # eval? need eval param
+
+
+    # compute loss after foward pass
+    def compute_loss(self, num_examples, reg_strength):
+        exp_scores = np.exp(self.activations[self.depth])
+        # TODO axis???
+        probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+        correct_logprobs = -np.log(probs[range(num_examples), y])
+        data_loss = np.sum(correct_logprobs) / num_examples
+        reg_loss = 0.5 * reg_strength * sum(np.sum(W) for W in self.weights)
+        return data_loss + reg_loss
+
     # TODO dropout?
-    def backprop(self, x, y, train_rate = 1e-0, reg_strength = 1e-3):
+    def backprop(self, x, y, train_rate=1e-0, reg_strength=1e-3):
         pass
     
-    def param_update(self, x, dW, dB):
+    def param_update(self, x, step_size, dW, dB):
+        # update weights and biases
         pass
     
     # returns tuple (index of max score, winning label name, probabilities (list(output_size)))
@@ -166,10 +202,14 @@ class NN:
         # get unnormalized probabilities
         exp_scores = np.exp(scores)
         # normalize them for each example
+        # TODO make class variable?
         probs = exp_scores / np.sum(exp_scores, keepdims=True)
         winner = scores.argmax()
         return winner, self.labels[winner], probs
-    
+
+    def gradient_check(self, X, y, step_size, reg_strength):
+        pass
+
     def print_meta(self):
         print('depth: %d' % self.depth)
         print('input size: %d' % self.input_size)

@@ -4,21 +4,19 @@ import nn
 import visualnn 
 import os
 
-script_dir = os.path.dirname(__file__) #<-- absolute dir the script is in
-rel_path = '/example_weights/2x2classifier.csv'
-abs_file_path = script_dir + rel_path
-print(abs_file_path)
+rel_path = './example_weights/2x2classifier.csv'
 
-horizontal1 = [1,1,0,0]
-horizontal2 = [0,0,1,1]
-vertical1 = [0,1,0,1]
-vertical2 = [1,0,1,0]
-checkered1 = [0,1,1,0]
-checkered2 = [1,0,0,1]
+horizontal1 = [1, 1, 0, 0]
+horizontal2 = [0, 0, 1, 1]
+vertical1 = [0, 1, 0, 1]
+vertical2 = [1, 0, 1, 0]
+checkered1 = [0, 1, 1, 0]
+checkered2 = [1, 0, 0, 1]
 
 
-toy = nn.NN(input_size = 4, output_size = 3, num_hidden = 1, hidden_size = 6, nonlinearity = 'relu', labels = ['horizonal', 'vertical', 'checkered'])
-toy.init_weights(abs_file_path)
+toy = nn.NN(input_size=4, output_size=3, num_hidden=1, hidden_size=6, nonlinearity='relu',
+            labels=['horizonal', 'vertical', 'checkered'])
+toy.init_weights(rel_path)
 #toy.save_weights(script_dir + '/example_weights/save_weights_test.csv')
 
 
