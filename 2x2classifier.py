@@ -47,7 +47,6 @@ print('prediction: %s' % classification)
 visualize.update()
 visualize.draw('Vertical1')
 
-
 _, classification, scores = toy.predict(vertical2)
 print('scores: %a' % scores)
 print('correct: vertical')

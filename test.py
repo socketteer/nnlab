@@ -7,7 +7,6 @@ neuralnet = nn.NN(input_size = 10, output_size = 5, num_hidden = 3, hidden_size 
 
 neuralnet.print_meta()
 
-
 visualize2 = visualnn.VisualNN(neuralnet)
 visualize2.draw('neural net')
 
