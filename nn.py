@@ -162,40 +162,85 @@ class NN:
         
         return self.activations[self.depth]    
     
-    def train(self, X, y, dropout, train_rate, reg_strength):
+    # TODO this is stochastic gradient descent. Batch option?
+    '''
+    X: training set ((num_examples, input_size))
+    '''
+    def train(self, X, y, dropout, train_rate=1e-0, reg_strength=1e-3, epochs):
+        # check if parameters are valid
         if dropout <= 0 or dropout > 1:
             raise exceptions.InvalidTrainingParameter('Invalid dropout %f. Valid value are 0 <= dropout <= 1'
                                                       % dropout)
+        if not X.shape[1] == self.input_size:
+            raise exceptions.InvalidTrainingParameter('parameter X must contain instances with dimension input_size')
+        
+        
         num_examples = X.shape[0]
+        
         # TODO how are batches processed?
-        # loop
-            # x = ?
-            # fwdpass()
-            # compute_loss(num_examples, reg_strength)
-            # backprop(x, y, train_rate, reg_strength)
-            # param update(x, train_rate, dW, dB)
+        for epoch in range(epochs):
+            print('epoch %d' % epoch)
+            loss = self.compute_loss(num_examples, y, reg_strength)
+            print('loss: %d' % loss)
+            for i in range(num_examples):
+                x = X[i,:]
+                correct_class = y[i]
+                self.fwdpass(x)
+                dW, dB = self.backprop(x, correct_class, reg_strength)
+                self.param_update(train_rate, dW, dB)
+                
+        # eval
 
-        # eval? need eval param
 
-
-    # compute loss after foward pass
-    def compute_loss(self, num_examples, reg_strength):
-        exp_scores = np.exp(self.activations[self.depth])
-        # TODO axis???
+    def compute_loss(self, batch_size, y, reg_strength):
+        exp_scores = np.exp(self.activations[-1])
         probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
-        correct_logprobs = -np.log(probs[range(num_examples), y])
-        data_loss = np.sum(correct_logprobs) / num_examples
+        correct_logprobs = -np.log(probs[range(batch_size), y])
+        data_loss = np.sum(correct_logprobs) / batch_size
         reg_loss = 0.5 * reg_strength * sum(np.sum(W) for W in self.weights)
         return data_loss + reg_loss
 
     # TODO dropout?
-    def backprop(self, x, y, train_rate=1e-0, reg_strength=1e-3):
-        pass
+    def backprop(self, x, correct_class, reg_strength=1e-3):
+        # compute dscores
+        exp_scores = np.exp(self.activations[self.depth])
+        probs = exp_scores / np.sum(exp_scores)
+        dActivations = [None] * (self.hidden_layers + 1)
+        dActivations[-1] = probs
+        dActivations[-1][correct_class] -= 1
+        dW = [None] * self.hidden_layers
+        dW = [None] * self.hidden_layers
+        
+        # compute dW and dB of output weights and bias
+        dW[self.hidden_layers - 1] = np.dot(self.activations[self.hidden_layers - 1].T, dActivations[-1])
+        dB[self.hidden_layers - 1] = np.sum(dActivations[-1])
+        
+        # backpropogate 
+        for i in range (self.hidden_layers - 2, -1, -1):
+            dActivations[i] = np.dot[dActivations[i+1], self.weights[i+1].T]
+            
+            # backpropogate ReLU nonlinearity
+            # TODO contingent on nonlinearity type
+            dActivations[i][dActivations[i+1] <= 0] = 0
+            
+            dW[i] = np.dot(self.activations[i].T, dActivations[i+1])
+            dB[i] = np.sum(dActivations[i+1])
+            
+            # add regularization gradient contribution
+            dW[i] += reg_strength * self.weights[i]
+            
+        return dW, dB
     
-    def param_update(self, x, step_size, dW, dB):
+    def param_update(self, step_size, dW, dB):
         # update weights and biases
-        pass
-    
+        # TODO will this work?
+        self.weights += dW * step_size
+        self.biases += dB * step_size
+        
+        '''for i in range enumerate(self.hidden_size):
+            '''
+            
+            
     # returns tuple (index of max score, winning label name, probabilities (list(output_size)))
     def predict(self, x):
         scores = self.fwdpass(x)
