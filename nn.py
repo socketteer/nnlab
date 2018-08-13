@@ -157,10 +157,10 @@ class NN:
             self.activations[i+1] = self.f(np.dot(self.activations[i], self.weights[i]) + self.biases[i])
         
         # compute output layer without nonlinearity
-        self.activations[self.depth] = np.dot(self.activations[self.depth-1], self.weights[self.depth-1]) \
-                                       + self.biases[self.depth-1]
+        self.activations[-1] = np.dot(self.activations[-2], self.weights[-1]) \
+                                       + self.biases[-1]
         
-        return self.activations[self.depth]    
+        return self.activations[-1]    
     
     # TODO this is stochastic gradient descent. Batch option?
     # TODO implement dropout
@@ -174,15 +174,14 @@ class NN:
                                                       % dropout)
         if not X.shape[1] == self.input_size:
             raise exceptions.InvalidTrainingParameter('parameter X must contain instances with dimension input_size')
-        
-        
+    
         num_examples = X.shape[0]
         
         # TODO how are batches processed?
         for epoch in range(epochs):
             print('epoch %d' % epoch)
-            #loss = self.compute_loss(num_examples, y, reg_strength)
-            #print('loss: %d' % loss)
+            loss = self.compute_loss(X, y, reg_strength)
+            print('loss: %f' % loss)
             for i in range(num_examples):
                 x = X[i,:]
                 correct_class = y[i]
@@ -195,19 +194,23 @@ class NN:
         # eval
 
     #TODO figure out how to do this
-    def compute_loss(self, batch_size, y, reg_strength):
-        exp_scores = np.exp(self.activations[-1])
+    def compute_loss(self, X, y, reg_strength):
+        batch_size = X.shape[0]
+        scores = np.zeros((batch_size, self.output_size))
+        for i in range(batch_size):
+            scores[i,:] = self.fwdpass(X[i,:])
+        exp_scores = np.exp(scores)
         probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
         correct_logprobs = -np.log(probs[range(batch_size), y])
         data_loss = np.sum(correct_logprobs) / batch_size
+
         reg_loss = 0.5 * reg_strength * sum(np.sum(W) for W in self.weights)
         return data_loss + reg_loss
 
     # TODO dropout?
     def backprop(self, x, correct_class, reg_strength=1e-3):
         # compute dscores
-        print('depth: %d' % self.depth)
-        exp_scores = np.exp(self.activations[self.depth])
+        exp_scores = np.exp(self.activations[-1])
         probs = exp_scores / np.sum(exp_scores)
         dActivations = [None] * (self.depth+1)
         dActivations[-1] = probs
@@ -216,12 +219,7 @@ class NN:
         dB = [None] * self.depth
         
         # compute dW and dB of output weights and bias
-        # transpose?
         dW[-1] = np.dot(self.activations[-2][None,:].T, dActivations[-1][None,:])
-
-        print('dW[-1] shape:')
-        print(np.shape(dW[-1]))
-       
         dB[-1] = np.sum(dActivations[-1])
         
         # add regularization gradient contribution
@@ -231,25 +229,15 @@ class NN:
         dActivations[-2].T[self.activations[1] <= 0] = 0
         
         # backpropogate 
-        for i in range (self.depth - 2, -1, -1):
-            print(i)
-            
+        for i in range (self.depth - 2, -1, -1):            
             dW[i] = np.dot(self.activations[i][None,:].T, dActivations[i+1])
-            
-            print('dW[%d] shape:' % i)
-            print(np.shape(dW[i]))
-            
             dB[i] = np.sum(dActivations[i+1])
             
             # add regularization gradient contribution
             dW[i] += reg_strength * self.weights[i]
             
             dActivations[i] = np.dot(dActivations[i+1][None,:], self.weights[i].T)
-            
-            print('dActivations[%d] shape:' % i)
-            print(np.shape(dActivations[i]))
-            print('self.activations[%d] shape:' % i)
-            print(np.shape(self.activations[i]))
+
             # backpropogate ReLU nonlinearity
             # TODO contingent on nonlinearity type
             dActivations[i].T[self.activations[i] <= 0] = 0
@@ -259,9 +247,8 @@ class NN:
     def param_update(self, step_size, dW, dB):
         # update weights and biases
         for i in range(self.depth):
-            print(i)
-            self.weights[i] += dW[i] * step_size
-            self.biases[i] += dB[i] * step_size
+            self.weights[i] += -step_size * dW[i] 
+            self.biases[i] += -step_size * dB[i] 
             
             
     # returns tuple (index of max score, winning label name, probabilities (list(output_size)))
