@@ -163,10 +163,11 @@ class NN:
         return self.activations[self.depth]    
     
     # TODO this is stochastic gradient descent. Batch option?
+    # TODO implement dropout
     '''
     X: training set ((num_examples, input_size))
     '''
-    def train(self, X, y, dropout, train_rate=1e-0, reg_strength=1e-3, epochs):
+    def train(self, X, y, dropout=1, step_size=1e-0, reg_strength=1e-3, epochs=1000):
         # check if parameters are valid
         if dropout <= 0 or dropout > 1:
             raise exceptions.InvalidTrainingParameter('Invalid dropout %f. Valid value are 0 <= dropout <= 1'
@@ -180,18 +181,20 @@ class NN:
         # TODO how are batches processed?
         for epoch in range(epochs):
             print('epoch %d' % epoch)
-            loss = self.compute_loss(num_examples, y, reg_strength)
-            print('loss: %d' % loss)
+            #loss = self.compute_loss(num_examples, y, reg_strength)
+            #print('loss: %d' % loss)
             for i in range(num_examples):
                 x = X[i,:]
                 correct_class = y[i]
                 self.fwdpass(x)
                 dW, dB = self.backprop(x, correct_class, reg_strength)
-                self.param_update(train_rate, dW, dB)
+                print(dW)
+                print(dB)
+                self.param_update(step_size, dW, dB)
                 
         # eval
 
-
+    #TODO figure out how to do this
     def compute_loss(self, batch_size, y, reg_strength):
         exp_scores = np.exp(self.activations[-1])
         probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
@@ -203,42 +206,62 @@ class NN:
     # TODO dropout?
     def backprop(self, x, correct_class, reg_strength=1e-3):
         # compute dscores
+        print('depth: %d' % self.depth)
         exp_scores = np.exp(self.activations[self.depth])
         probs = exp_scores / np.sum(exp_scores)
-        dActivations = [None] * (self.hidden_layers + 1)
+        dActivations = [None] * (self.depth+1)
         dActivations[-1] = probs
         dActivations[-1][correct_class] -= 1
-        dW = [None] * self.hidden_layers
-        dW = [None] * self.hidden_layers
+        dW = [None] * self.depth
+        dB = [None] * self.depth
         
         # compute dW and dB of output weights and bias
-        dW[self.hidden_layers - 1] = np.dot(self.activations[self.hidden_layers - 1].T, dActivations[-1])
-        dB[self.hidden_layers - 1] = np.sum(dActivations[-1])
+        # transpose?
+        dW[-1] = np.dot(self.activations[-2][None,:].T, dActivations[-1][None,:])
+
+        print('dW[-1] shape:')
+        print(np.shape(dW[-1]))
+       
+        dB[-1] = np.sum(dActivations[-1])
+        
+        # add regularization gradient contribution
+        dW[-1] += reg_strength * self.weights[-1] 
+        
+        dActivations[-2] = np.dot(dActivations[-1][None,:], self.weights[-1].T)
+        dActivations[-2].T[self.activations[1] <= 0] = 0
         
         # backpropogate 
-        for i in range (self.hidden_layers - 2, -1, -1):
-            dActivations[i] = np.dot[dActivations[i+1], self.weights[i+1].T]
+        for i in range (self.depth - 2, -1, -1):
+            print(i)
             
-            # backpropogate ReLU nonlinearity
-            # TODO contingent on nonlinearity type
-            dActivations[i][dActivations[i+1] <= 0] = 0
+            dW[i] = np.dot(self.activations[i][None,:].T, dActivations[i+1])
             
-            dW[i] = np.dot(self.activations[i].T, dActivations[i+1])
+            print('dW[%d] shape:' % i)
+            print(np.shape(dW[i]))
+            
             dB[i] = np.sum(dActivations[i+1])
             
             # add regularization gradient contribution
             dW[i] += reg_strength * self.weights[i]
             
+            dActivations[i] = np.dot(dActivations[i+1][None,:], self.weights[i].T)
+            
+            print('dActivations[%d] shape:' % i)
+            print(np.shape(dActivations[i]))
+            print('self.activations[%d] shape:' % i)
+            print(np.shape(self.activations[i]))
+            # backpropogate ReLU nonlinearity
+            # TODO contingent on nonlinearity type
+            dActivations[i].T[self.activations[i] <= 0] = 0
+            
         return dW, dB
     
     def param_update(self, step_size, dW, dB):
         # update weights and biases
-        # TODO will this work?
-        self.weights += dW * step_size
-        self.biases += dB * step_size
-        
-        '''for i in range enumerate(self.hidden_size):
-            '''
+        for i in range(self.depth):
+            print(i)
+            self.weights[i] += dW[i] * step_size
+            self.biases[i] += dB[i] * step_size
             
             
     # returns tuple (index of max score, winning label name, probabilities (list(output_size)))
