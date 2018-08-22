@@ -24,11 +24,9 @@ neuralnet = nn.NN(input_size=D, output_size=K, num_hidden=1, hidden_size=100)
 neuralnet.print_meta()
 
 visualize = visualnn.VisualNN(neuralnet)
-loss = neuralnet.train(X, y, step_size=step_size, reg_strength=reg, epochs=0, compute_loss_every=10)
-visualize.update()
-visualize.save('traintest/frame0.png', "Loss = %f" % loss)
+visualize.save('traintest/frame0.png', "Epoch 0")
 
 for step in range(25):
     loss = neuralnet.train(X, y, step_size=step_size, reg_strength=reg, epochs=200, compute_loss_every=100)
     visualize.update()
-    visualize.save('traintest/frame%d.png' % (step + 1), "Loss = %f" % loss)
+    visualize.save('traintest/frame%d.png' % (step + 1), "Epoch %d, Loss = %f" % ((step+1)*200, loss))

@@ -1,16 +1,11 @@
 import numpy as np
 import exceptions
 
-# TODO: backpropagation
+# TODO:
 # gradient check
-
-# TODO: visualize:
+# save checkpoint
+# nonlinearities
 # dropout
-# loss: training vs validation
-# if image: first layer weights
-# training process : redraw image once per training cycle
-
-# representation semantics visualizations
 
 #init from csv file with saved weights and architecture information
 def init_from_checkpoint(file):
