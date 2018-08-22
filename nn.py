@@ -12,10 +12,6 @@ import exceptions
 
 # representation semantics visualizations
 
-# TODO: have weights/biases be method parameters and only update class variables once per epoch (or per training cycle?)
-# the only reason we have class variables is for visualization anyway
-# this will allow for parallelization, batch gradient descent, and non retarded gradient check implementation
-
 #init from csv file with saved weights and architecture information
 def init_from_checkpoint(file):
     return NN()
@@ -105,7 +101,6 @@ class NN:
         self.activations.append(np.zeros(output_size))
         
         # constructing weight matrices (random initialization)
-        # TODO is this the right way to init weights??
         self.weights = []
         for i in range(self.depth):
             self.weights.append(0.01 * np.random.randn(len(self.activations[i]), len(self.activations[i+1])))
@@ -145,6 +140,7 @@ class NN:
                 np.savetxt(f, mat, fmt='%.5f', delimiter=' ')
     
     # save weights and architecture information to file
+    # TODO implement
     def save_checkpoint(self, file):
         pass
     
@@ -156,10 +152,10 @@ class NN:
             activations = []
             activations.append(X)
 
-        if not W:
+        '''if not W:
             W = self.weights
         if not b:
-            b = self.biases
+            b = self.biases'''
 
         # computing hidden layer activations    
         for i in range(self.depth-1):
@@ -171,12 +167,11 @@ class NN:
         
         return activations
     
-    # TODO this is stochastic gradient descent. Batch option?
     # TODO implement dropout
     '''
     X: training set ((num_examples, input_size))
     '''
-    def train(self, X, y, dropout=1, step_size=1e-0, reg_strength=1e-3, epochs=1000):
+    def train(self, X, y, dropout=1, step_size=1e-0, reg_strength=1e-3, epochs=1000, compute_loss_every=100):
         # check if parameters are valid
         if dropout <= 0 or dropout > 1:
             raise exceptions.InvalidTrainingParameter('Invalid dropout %f. Valid value are 0 <= dropout <= 1'
@@ -187,32 +182,38 @@ class NN:
         W = self.weights
         b = self.biases
 
-        num_examples = X.shape[0]
-
         for epoch in range(epochs):
             # activations here should be two dimensional
             activations = self.fwdpass(X, W, b)
             dW, dB, _ = self.backprop(y, reg_strength, activations, W)
             W, b = self.param_update(step_size, dW, dB, W, b)
 
-            print('epoch %d' % epoch)
-            loss = self.batch_loss(activations[-1], y, reg_strength, W)
-            print('loss: %f' % loss)
+            if epoch % compute_loss_every == 0:
+                print('epoch %d' % epoch)
+                loss = self.batch_loss(y, reg_strength, activations[-1], W)
+                print('loss: %f' % loss)
                 
         # evaluation
-        scores = self.fwdpass(X, W, b)[-1]
+        activations = self.fwdpass(X, W, b)
+        scores = activations[-1]
         predicted_class = np.argmax(scores, axis=1)
+        loss = self.batch_loss(y, reg_strength, activations[-1], W)
+        print('loss: %f' % loss)
         print('training accuracy: %.2f' % (np.mean(predicted_class == y)))
 
         self.weights = W
         self.biases = b
 
-    def batch_loss(self, scores, y, reg_strength, W):
+        return loss
+
+    def batch_loss(self, y, reg_strength, scores=None, W=None):
         '''scores should be matrix(num_examples, output_size)'''
-        if not np.shape(scores)[1] == (self.output_size):
-            raise exceptions.InvalidTrainingParameter('scores should be matrix(num_examples, output_size)')
-        if not W:
+        '''if W == None:
             W = self.weights
+        if scores == None:
+            scores = self.activations[-1]'''
+        if len(np.shape(scores)) == 2 and not np.shape(scores)[1] == self.output_size:
+            raise exceptions.InvalidTrainingParameter('scores should be matrix(num_examples, output_size)')
         batch_size = np.shape(scores)[0]
         exp_scores = np.exp(scores)
         probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
@@ -222,10 +223,10 @@ class NN:
         return data_loss + reg_loss
 
     def loss(self, x, y, reg_strength, W=None, b=None):
-        if not W:
+        '''if not W:
             W = self.weights
         if not b:
-            b = self.biases
+            b = self.biases'''
         # TODO: check if this works correctly
         scores = self.fwdpass(x, W, b)
         exp_scores = np.exp(scores)
@@ -238,9 +239,9 @@ class NN:
 
     # TODO dropout?
     def backprop(self, y, reg_strength=1e-3, activations=None, W=None):
-        if not W:
-            W = self.weights
-        # compute dscores
+        '''if not W:
+            W = self.weights'''
+
         batch_size = np.shape(activations[-1])[0]
         exp_scores = np.exp(activations[-1])
         # probs is matrix shape (batch_size, self.output_size)
@@ -277,12 +278,11 @@ class NN:
             
         return dW, db, dActivations
 
-    # TODO batch
     def param_update(self, step_size, dW, db, W=None, b=None):
-        if not W:
+        '''if not W:
             W = self.weights
         if not b:
-            b = self.biases
+            b = self.biases'''
         # update weights and biases
         for i in range(self.depth):
             W[i] += -step_size * dW[i]
@@ -292,7 +292,8 @@ class NN:
             
     # returns tuple (index of max score, winning label name, probabilities (list(output_size)))
     def predict(self, x):
-        scores = self.fwdpass(x)[-1]
+        self.activations = self.fwdpass(x)
+        scores = self.activations[-1]
         # get unnormalized probabilities
         exp_scores = np.exp(scores)
         # normalize them for each example

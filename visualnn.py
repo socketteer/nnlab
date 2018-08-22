@@ -132,3 +132,15 @@ class VisualNN:
         pyplot.axis('off')
         pyplot.title(title, fontsize=15)
         pyplot.show()
+
+    def save(self, directory, title='Untitled'):
+        pyplot.figure()
+        for i in range(len(self.layers)):
+            layer = self.layers[i]
+            if i == len(self.layers) - 1:
+                i = -1
+            layer.draw(i)
+        pyplot.axis('scaled')
+        pyplot.axis('off')
+        pyplot.title(title, fontsize=15)
+        pyplot.savefig(directory)
