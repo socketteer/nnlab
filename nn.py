@@ -145,6 +145,7 @@ class NN:
         pass
     
     def fwdpass(self, x):
+        # TODO: optional weights/biases parameter?
         # check if x is equal to input size
         if not len(x) == self.input_size:
             raise exceptions.InvalidInput('Data must have same dimensionality as network input layer size')
@@ -180,25 +181,22 @@ class NN:
         # TODO how are batches processed?
         for epoch in range(epochs):
             print('epoch %d' % epoch)
-            loss = self.compute_loss(X, y, reg_strength)
+            loss = self.batch_loss(X, y, reg_strength)
             print('loss: %f' % loss)
             for i in range(num_examples):
                 x = X[i,:]
                 correct_class = y[i]
                 self.fwdpass(x)
-                dW, dB = self.backprop(x, correct_class, reg_strength)
-                print(dW)
-                print(dB)
+                dW, dB, _ = self.backprop(x, correct_class, reg_strength)
                 self.param_update(step_size, dW, dB)
                 
         # eval
 
-    #TODO figure out how to do this
-    def compute_loss(self, X, y, reg_strength):
+    def batch_loss(self, X, y, reg_strength):
         batch_size = X.shape[0]
         scores = np.zeros((batch_size, self.output_size))
         for i in range(batch_size):
-            scores[i,:] = self.fwdpass(X[i,:])
+            scores[i, :] = self.fwdpass(X[i, :])
         exp_scores = np.exp(scores)
         probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
         correct_logprobs = -np.log(probs[range(batch_size), y])
@@ -206,6 +204,17 @@ class NN:
 
         reg_loss = 0.5 * reg_strength * sum(np.sum(W) for W in self.weights)
         return data_loss + reg_loss
+
+    def loss(self, x, y, reg_strength):
+        # TODO: is this correct?
+        scores = self.fwdpass(x)
+        exp_scores = np.exp(scores)
+        probs = exp_scores / np.sum(exp_scores)
+        correct_logprobs = -np.log(probs)
+        data_loss = np.sum(correct_logprobs)
+        reg_loss = 0.5 * reg_strength * sum(np.sum(W) for W in self.weights)
+        return data_loss + reg_loss
+
 
     # TODO dropout?
     def backprop(self, x, correct_class, reg_strength=1e-3):
@@ -219,18 +228,18 @@ class NN:
         dB = [None] * self.depth
         
         # compute dW and dB of output weights and bias
-        dW[-1] = np.dot(self.activations[-2][None,:].T, dActivations[-1][None,:])
+        dW[-1] = np.dot(self.activations[-2][None, :].T, dActivations[-1][None,:])
         dB[-1] = np.sum(dActivations[-1])
         
         # add regularization gradient contribution
         dW[-1] += reg_strength * self.weights[-1] 
         
-        dActivations[-2] = np.dot(dActivations[-1][None,:], self.weights[-1].T)
+        dActivations[-2] = np.dot(dActivations[-1][None, :], self.weights[-1].T)
         dActivations[-2].T[self.activations[1] <= 0] = 0
         
         # backpropogate 
         for i in range (self.depth - 2, -1, -1):            
-            dW[i] = np.dot(self.activations[i][None,:].T, dActivations[i+1])
+            dW[i] = np.dot(self.activations[i][None, :].T, dActivations[i+1])
             dB[i] = np.sum(dActivations[i+1])
             
             # add regularization gradient contribution
@@ -242,7 +251,7 @@ class NN:
             # TODO contingent on nonlinearity type
             dActivations[i].T[self.activations[i] <= 0] = 0
             
-        return dW, dB
+        return dW, dB, dActivations
     
     def param_update(self, step_size, dW, dB):
         # update weights and biases
@@ -257,13 +266,60 @@ class NN:
         # get unnormalized probabilities
         exp_scores = np.exp(scores)
         # normalize them for each example
-        # TODO make class variable?
         probs = exp_scores / np.sum(exp_scores, keepdims=True)
         winner = scores.argmax()
         return winner, self.labels[winner], probs
 
-    def gradient_check(self, X, y, step_size, reg_strength):
-        pass
+    def gradient_check(self, x, y, step_size, reg_strength):
+        # TODO: check only some dimensions
+        # TODO: make sure target is actually changed before calling compute_loss
+        # TODO: iterate indices instead?
+
+        # compute numerical gradients
+        dW_num = []
+        dB_num = []
+        dActivations_num = []
+        grad_func = np.vectorize(self.__numerical_gradient)
+
+        for weight_layer in self.weights:
+            dW_num.append(grad_func(weight_layer, x, y, step_size, reg_strength))
+        for bias in self.biases:
+            dB_num.append(grad_func(bias, x, y, step_size, reg_strength))
+        for activation_layer in self.activations:
+            dActivations_num.append(grad_func(activation_layer, x, y, step_size, reg_strength))
+
+        # compute analytical gradients
+        dW, dB, dActivations = self.backprop(x, y, reg_strength)
+
+        # compute relative error
+        dW_err = []
+        dB_err = []
+        dActivations_err = []
+        relative_err_func = np.vectorize(self.__relative_err)
+
+        for i in range(len(dW)):
+            dW_err.append(relative_err_func(dW[i], dW_num[i]))
+        for i in range(len(dW)):
+            dB_err.append(relative_err_func(dB[i], dB_num[i]))
+        for i in range(len(dW)):
+            dActivations_err.append(relative_err_func(dActivations[i], dActivations_num[i]))
+
+        return dW_err, dB_err, dActivations_err
+
+    def __numerical_gradient(self, target, x, y, step_size, reg_strength):
+        old_val = target
+        target += step_size
+        a = self.loss(x, y, reg_strength)
+        target = old_val
+        target -= step_size
+        b = self.loss(x, y, reg_strength)
+        target = old_val
+
+        return (a - b) / (2 * step_size)
+
+    def __relative_err(self, analytical, numerical):
+        return abs(analytical - numerical) / max(abs(analytical), abs(numerical))
+
 
     def print_meta(self):
         print('depth: %d' % self.depth)
