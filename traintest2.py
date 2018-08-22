@@ -1,0 +1,32 @@
+import numpy as np
+import nn
+import visualnn
+from matplotlib import pyplot as plt
+
+
+N = 100 # number of points per class
+D = 2 # dimensionality
+K = 3 # number of classes
+X = np.zeros((N*K,D)) # data matrix (each row = single example)
+y = np.zeros(N*K, dtype='uint8') # class labels
+for j in range(K):
+  ix = range(N*j,N*(j+1))
+  r = np.linspace(0.0,1,N) # radius
+  t = np.linspace(j*4,(j+1)*4,N) + np.random.randn(N)*0.2 # theta
+  X[ix] = np.c_[r*np.sin(t), r*np.cos(t)]
+  y[ix] = j
+
+# some hyperparameters
+step_size = 1e-0
+reg = 1e-3  # regularization strength
+
+neuralnet = nn.NN(input_size=D, output_size=K, num_hidden=2, hidden_size=40)
+neuralnet.print_meta()
+
+visualize = visualnn.VisualNN(neuralnet)
+visualize.save('traintest2/frame0.png', "Epoch 0")
+
+for step in range(50):
+    loss = neuralnet.train(X, y, step_size=step_size, reg_strength=reg, epochs=50, compute_loss_every=10)
+    visualize.update()
+    visualize.save('traintest2/frame%d.png' % (step + 1), "Epoch %d, Loss = %f" % ((step+1)*50, loss))
