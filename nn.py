@@ -150,9 +150,8 @@ class NN:
     
     def fwdpass(self, X, W=None, b=None):
         # check if x is equal to input size
-        if not len(X) == self.input_size:
-            if not len(X.shape) == 2 and len(X.shape[1] == self.input_size):
-                raise exceptions.InvalidInput('Data must have same dimensionality as network input layer size')
+        if not len(X) == self.input_size and not (len(X.shape) == 2 and X.shape[1] == self.input_size):
+                raise exceptions.InvalidTrainingParameter('Data must have same dimensionality as network input layer size. Your X has shape %s' % (X.shape,))
         else:
             activations = []
             activations.append(X)
@@ -197,7 +196,7 @@ class NN:
             W, b = self.param_update(step_size, dW, dB, W, b)
 
             print('epoch %d' % epoch)
-            loss = self.batch_loss(activations[-1], y, num_examples, reg_strength, W)
+            loss = self.batch_loss(activations[-1], y, reg_strength, W)
             print('loss: %f' % loss)
                 
         # evaluation
@@ -242,7 +241,7 @@ class NN:
         if not W:
             W = self.weights
         # compute dscores
-        batch_size = np.shape(activations)[0]
+        batch_size = np.shape(activations[-1])[0]
         exp_scores = np.exp(activations[-1])
         # probs is matrix shape (batch_size, self.output_size)
         probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
@@ -255,19 +254,19 @@ class NN:
         dW = []
         db = []
 
-        dW.insert(0, (np.dot(activations[-2].T, dActivations[-1])))
+        '''dW.insert(0, (np.dot(activations[-2].T, dActivations[-1])))
         db.insert(0, np.sum(dActivations[-1], axis=0, keepdims=True))
         dActivations.insert(0, np.dot(dActivations[-1], W[-1].T))
         # ReLU
-        dActivations[0][activations[-2] <= 0] = 0
+        dActivations[0][activations[-2] <= 0] = 0'''
 
         # add regularization gradient contribution
         # dW[-1] += reg_strength * self.weights[-1]
 
         for i in range(self.depth - 1, -1, -1):
             dW.insert(0, (np.dot(activations[i].T, dActivations[0])))
-            db.insert(0, np.sum(dActivations[i+1], axis=0, keepdims=True))
-            dActivations.insert(0, np.dot(dActivations[i+1], W[i].T))
+            db.insert(0, np.sum(dActivations[0], axis=0, keepdims=True))
+            dActivations.insert(0, np.dot(dActivations[0], W[i].T))
 
             # ReLU
             # TODO: contingent on nonlinearity type
@@ -287,7 +286,7 @@ class NN:
         # update weights and biases
         for i in range(self.depth):
             W[i] += -step_size * dW[i]
-            b[i] += -step_size * db[i]
+            b[i] += -step_size * db[i][0]
         return W, b
             
             
