@@ -244,8 +244,8 @@ class NN:
 
         dActivations = []
         dActivations.insert(0, probs)
-        dActivations[-1][range(batch_size), y] -= 1
-        dActivations[-1] /= batch_size
+        dActivations[0][range(batch_size), y] -= 1
+        dActivations[0] /= batch_size
 
         dW = []
         db = []

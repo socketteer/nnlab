@@ -1,5 +1,6 @@
 # adapted from Oli Blum's answer at https://stackoverflow.com/questions/29888233/how-to-visualize-a-neural-network
-# TODO: biases
+# TODO:
+# draw biases
 
 from matplotlib import pyplot
 from math import cos, sin, atan
